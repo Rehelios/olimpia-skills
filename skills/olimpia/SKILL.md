@@ -1,6 +1,6 @@
 ---
 name: olimpia
-description: Deploys and operates apps, Postgres, Redis and S3-compatible buckets on Olimpia (olimpia.dev, apps at *.olimpia.cc) through the Olimpia MCP server. Covers deploying a local folder, a GitHub repo or a ready-made template of an open-source tool (n8n, cal.com, Infisical, Umami, Metabase...), environment variables, connecting databases, running SQL, scheduled Postgres backups, custom domains, logs and fixing failed builds or crashing apps. Use when the user mentions Olimpia, olimpia.dev or olimpia.cc, or asks to deploy, host, publish or put online an app, self-host an open-source tool, create a database, Redis or bucket, or debug a deployment while the Olimpia MCP server is connected.
+description: Deploys and operates apps, Postgres, Redis, S3-compatible buckets and transactional email on Olimpia (olimpia.dev, apps at *.olimpia.cc) through the Olimpia MCP server. Covers deploying a local folder, a GitHub repo or a ready-made template of an open-source tool (n8n, cal.com, Infisical, Umami, Metabase...), environment variables, connecting databases, sending email from the user's domain, running SQL, scheduled Postgres backups, custom domains, logs and fixing failed builds or crashing apps. Use when the user mentions Olimpia, olimpia.dev or olimpia.cc, or asks to deploy, host, publish or put online an app, self-host an open-source tool, create a database, Redis or bucket, send emails from their app, or debug a deployment while the Olimpia MCP server is connected.
 ---
 
 # Olimpia
@@ -10,6 +10,7 @@ Olimpia is a cloud platform. Everything lives in **projects**:
 - **App**: a container built from an uploaded folder (`source=upload`), a GitHub repo (`source=github`, redeploys on push) a public Docker image (`source=image`) or a ready-made template (`deploy_template`). Served at `https://<subdomain>.olimpia.cc`, plus optional custom domains.
 - **Deployment**: one build and release of an app: `queued → building → deploying → active`, or `failed` / `canceled`. `superseded` is an older active one.
 - **Postgres** (18), **Redis** (8) and **buckets** (S3-compatible). Apps reach them through internal URLs.
+- **Email domain**: a domain the user owns (`mail.example.com`), verified with DNS records, that apps send transactional email from through the Olimpia API.
 - **Environment**: every project starts with `production` and can have up to 4 more (`staging`, `preview`...), each with its own apps, databases and buckets.
 
 Names are 3-63 characters: lowercase letters, digits and hyphens.
@@ -75,6 +76,7 @@ To ship new code later: `get_upload_url` → upload → `deploy(source_key)`. `d
 - **Docker image:** `create_app(source="image", image="ghcr.io/owner/app:tag", port)`.
 - **Template** (self-hosting an open-source tool): `list_templates(search="<tool or use>")` searches the catalog; `deploy_template(template, name?)` deploys one. It creates the Postgres and Redis the template needs (same name as the app), generates the secrets and public URLs as env vars and starts the first deployment; follow it with `get_deployment`. Prefer it over `create_app(source="image")` whenever the tool is in the catalog. Details in [references/deploy.md](references/deploy.md#templates).
 - **Database:** `create_resource(kind="postgres", name, connect_to_app=app)` injects `DATABASE_URL`; then `deploy(app)`. Add `vector=true` when the app stores embeddings (pgvector). Same with `kind="redis"` (`REDIS_URL`) and `kind="bucket"` (`AWS_*`, `BUCKET_NAME`). Migrations, ORMs and SQL: [references/data.md](references/data.md).
+- **Email:** `create_resource(kind="email", name="mail.example.com")` returns `dns_records`: ask the user to create them at their DNS provider (names are relative to the zone), then `get_connection(kind="email", name)` until `status` is `SUCCESS`. `connect_resource(app, kind="email", name)` injects `EMAIL_API_KEY`, `EMAIL_API_URL`, `EMAIL_DOMAIN`; the app sends with `POST $EMAIL_API_URL/v1/emails`. Details in [references/data.md](references/data.md#email).
 - **Postgres backups:** `set_backups(database, bucket=<Olimpia bucket>)` schedules dumps into a bucket of the same project (no credentials needed), or pass `endpoint`, `s3_bucket`, `access_key_id`, `secret_access_key` for the user's own S3. Then `run_backup` to verify. Details in [references/data.md](references/data.md).
 - **Env vars:** `set_env(app, set={...}, remove=[...], redeploy=true)`. Values are encrypted; `get_env` hides the ones that look secret unless `reveal=true`.
 - **Custom domain:** `add_domain(app, domain)` returns DNS records for the user to create; `check_domain` until `active`. Root domains need CNAME flattening/ALIAS (Cloudflare supports it); otherwise use `www`.

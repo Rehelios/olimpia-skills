@@ -1,4 +1,4 @@
-# Postgres, Redis and buckets
+# Postgres, Redis, buckets and email
 
 ## Contents
 - Connecting apps
@@ -6,6 +6,7 @@
 - Postgres backups
 - Redis
 - Buckets
+- Email
 - Public access from outside Olimpia
 
 ## Connecting apps
@@ -17,6 +18,7 @@
 | postgres | `DATABASE_URL` (force another name with `env_key`; it replaces a variable with that name) |
 | redis | `REDIS_URL` |
 | bucket | `AWS_ENDPOINT_URL_S3`, `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `BUCKET_NAME` |
+| email | `EMAIL_API_KEY`, `EMAIL_API_URL`, `EMAIL_DOMAIN` |
 
 When the app already has a variable with a default name, the new ones get the resource name as suffix (`DATABASE_URL_MAIN`); `env_keys` in the reply lists the names used, so point the code at them. Rotating a password or bucket keys updates the apps that use it; they need a deploy to pick it up.
 
@@ -62,6 +64,37 @@ await s3.send(new PutObjectCommand({ Bucket: process.env.BUCKET_NAME, Key: "a.tx
 ```
 
 The AWS SDKs read `AWS_ENDPOINT_URL_S3` and `AWS_REGION` (`auto`) automatically. For browser uploads, generate presigned URLs in the app. `set_public_access(kind=bucket, public=true)` makes objects readable by URL (`public_url` in `get_connection`).
+
+## Email
+
+Transactional email from a domain the user owns. One domain per `create_resource(kind="email", name="mail.example.com")`; prefer a subdomain so its reputation stays apart from the user's mailbox. A domain exists once in all of Olimpia (`domain_taken` otherwise) and cannot be under olimpia.dev or olimpia.cc.
+
+1. `create_resource` returns `dns_records` (DKIM and SPF TXT, an MX, and a recommended `_dmarc` TXT). Names are relative to the domain's zone. Ask the user to create them; you cannot.
+2. `get_connection(kind="email", name)` checks them again on every call. `status`: `NOT_STARTED` or `FAILED` (records missing or wrong), `PENDING` (checking), `SUCCESS` (verified). Sending is rejected until `SUCCESS`.
+3. `connect_resource(app, kind="email", name)` injects the variables and redeploys.
+
+The app sends with any HTTP client:
+
+```js
+const res = await fetch(`${process.env.EMAIL_API_URL}/v1/emails`, {
+  method: "POST",
+  headers: { Authorization: `Bearer ${process.env.EMAIL_API_KEY}`, "Content-Type": "application/json" },
+  body: JSON.stringify({
+    from: `App <no-reply@${process.env.EMAIL_DOMAIN}>`,
+    to: "user@example.com",
+    subject: "Welcome",
+    html: "<p>Hi</p>",
+  }),
+});
+const { emailId } = await res.json();
+```
+
+- Body: `from` (an address at the key's domain), `to`, `subject`, `html` and/or `text`, optional `cc`, `bcc`, `replyTo`, `headers`, `attachments` (`[{ filename, content: base64 }]`). Unknown fields are rejected.
+- 1 to 50 recipients per email (to + cc + bcc). `POST /v1/emails/batch` takes an array of up to 100 emails. `GET /v1/emails/<emailId>` returns its delivery events.
+- 3,000 recipients per account per month (`429` beyond that; failed sends do not count).
+- Errors are `{ "error": { "code", "message" } }`: `401` bad key, `403` wrong sender domain, unverified or suspended domain, `400` invalid body.
+- A domain is suspended automatically when, with 50+ emails in the last 7 days, bounces exceed 10 % or complaints 0.3 %; only Olimpia support reactivates it. Send only to addresses that signed up, and do not retry addresses that bounced.
+- `get_usage` reports the recipients sent this month. Never print `EMAIL_API_KEY`; it is a secret.
 
 ## Public access from outside Olimpia
 

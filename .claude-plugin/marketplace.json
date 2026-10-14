@@ -9,7 +9,7 @@
     {
       "name": "olimpia",
       "source": "./",
-      "description": "Deploy and operate apps, Postgres, Redis and buckets on Olimpia: MCP server and skill."
+      "description": "Deploy and operate apps, Postgres, Redis, buckets and email on Olimpia: MCP server and skill."
     }
   ]
 }
