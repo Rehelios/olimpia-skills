@@ -26,7 +26,7 @@ Start with `get_deployment(app)` (latest) and read `status`, `error` and `build_
 `active` only means the container started. Check:
 
 1. `curl -sS -i <url>`.
-2. `get_logs(app, since="1h")`, or with `search` for a keyword such as `error`.
+2. `get_logs(app, since="1h")`, or with `query="level:error"` (also `http.status_code:>=500`, `-healthcheck`, `pattern:<hash>` from `top_patterns`; `around=<timestamp>` for the lines around one). A stack trace comes as one entry. If `covered_from` is present, that app wrote more than the 2000 lines read and older lines of the window were not searched.
 
 Common causes:
 

@@ -30,8 +30,8 @@ These are internal URLs on Olimpia's private network: no TLS parameters needed, 
 - pgvector: `create_resource(kind="postgres", name, vector=true)` creates it from `pgvector/pgvector:pg18`, so `CREATE EXTENSION vector` works (embeddings, similarity search). The default image (`postgres:18-alpine`) does not have it, and the image cannot change later: if the app needs vectors, pass `vector=true` from the start; for an existing database without it, create a new one and move the data. `get_project` shows each database's `image`.
 - Prisma: `DATABASE_URL` works as is. Run migrations at start (`"start": "prisma migrate deploy && node server.js"`): the build runs on separate machines and cannot reach the database.
 - Drizzle, Knex, TypeORM, SQLAlchemy, Django, Ecto, sqlx: read `DATABASE_URL`; run migrations on start or as a release step in the start command.
-- Inspect with `list_tables` and `query_postgres(database, sql)`: read mode accepts one SELECT/WITH/VALUES query and returns up to 200 rows as JSON.
-- `query_postgres(..., write=true)` runs any statements separated by `;` in one transaction with a 30 s timeout, as the `app` role. Use it for quick fixes or seeding; prefer the app's migrations for schema changes. Ask the user before destructive statements.
+- Inspect with `list_tables` and `query_postgres(database, sql)`: read mode accepts one SELECT/WITH/VALUES query (or EXPLAIN) and returns up to 200 rows or 256 KB as JSON (`truncated: true` when cut).
+- `query_postgres(..., write=true, confirm="<database name>")` runs any statements separated by `;` in one transaction with a 30 s timeout, as the `app` role. Use it for quick fixes or seeding; prefer the app's migrations for schema changes. Ask the user before every write and pass `confirm` only after they approve it.
 
 ## Postgres backups
 

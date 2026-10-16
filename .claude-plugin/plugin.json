@@ -1,6 +1,6 @@
 {
   "name": "olimpia",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "description": "Deploy and operate apps, Postgres, Redis, buckets and email on Olimpia from your agent: the Olimpia MCP server plus a skill that knows the workflows.",
   "author": {
     "name": "Olimpia",
